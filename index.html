@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 LED Control</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        #status {
+            font-size: 24px;
+            margin: 20px;
+            padding: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>ESP32 LED Control</h1>
+    <div id="status">LED: OFF</div>
+    <button id="toggleBtn">Toggle LED</button>
+
+    <script>
+        // Your Firebase config - replace with your actual config
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Get DOM elements
+        const toggleBtn = document.getElementById('toggleBtn');
+        const statusDiv = document.getElementById('status');
+
+        // Reference to LED status in Firebase
+        const ledRef = database.ref('esp32/led');
+
+        // Listen for LED state changes
+        ledRef.on('value', (snapshot) => {
+            const state = snapshot.val();
+            statusDiv.textContent = `LED: ${state ? 'ON' : 'OFF'}`;
+            statusDiv.style.color = state ? 'green' : 'red';
+        });
+
+        // Toggle button click handler
+        toggleBtn.addEventListener('click', () => {
+            ledRef.once('value').then((snapshot) => {
+                const currentState = snapshot.val();
+                ledRef.set(!currentState);
+            });
+        });
+    </script>
+</body>
+</html>
