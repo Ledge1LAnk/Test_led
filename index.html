@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 LED Control</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: Arial, text-align: center; margin-top: 50px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #status { font-size: 24px; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>ESP32 LED Control</h1>
+    <div id="status">LED: OFF</div>
+    <button id="toggleBtn">Toggle LED</button>
+
+    <script>
+        const firebaseConfig = {
+  apiKey: "AIzaSyCA0btNL_QIxsHryzl4ZdcfTp9pRWeI8JQ",
+  authDomain: "esp32-led-control-5646a.firebaseapp.com",
+  databaseURL: "https://esp32-led-control-5646a-default-rtdb.firebaseio.com",
+  projectId: "esp32-led-control-5646a",
+  storageBucket: "esp32-led-control-5646a.firebasestorage.app",
+  messagingSenderId: "989832608239",
+  appId: "1:989832608239:web:94027ebac129932ed69e1a"
+};
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const ledRef = database.ref('esp32/led');
+
+        document.getElementById('toggleBtn').addEventListener('click', () => {
+            ledRef.once('value').then((snapshot) => {
+                ledRef.set(!snapshot.val());
+            });
+        });
+
+        ledRef.on('value', (snapshot) => {
+            const state = snapshot.val();
+            document.getElementById('status').textContent = `LED: ${state ? 'ON' : 'OFF'}`;
+        });
+    </script>
+</body>
+</html>
