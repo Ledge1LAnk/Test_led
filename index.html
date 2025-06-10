@@ -1,124 +1,160 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ESP32 LED & ADC Control</title>
+    <title>ESP32 ADC Monitoring</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            margin-top: 50px; 
-            background-color: #f4f4f4;
-            color: #333;
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
         }
-        h1 {
-            color: #2c3e50;
-        }
-        div {
-            margin: 15px 0;
-            padding: 10px;
+        .panel {
+            border: 1px solid #ddd;
             border-radius: 8px;
-            background-color: #fff;
+            padding: 20px;
+            margin: 20px 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: inline-block; /* To make them centered */
-            min-width: 250px; /* Give them some width */
         }
-        #status { 
-            font-size: 24px; 
-            font-weight: bold;
-            color: #28a745; /* Green for ON */
-        }
-        #adcStatus {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff; /* Blue for ADC */
-        }
-        button { 
-            padding: 12px 25px; 
-            font-size: 18px; 
-            cursor: pointer; 
-            background-color: #6c757d;
+        .btn {
+            background-color: #4CAF50;
             color: white;
             border: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 4px;
         }
-        button:hover {
-            background-color: #5a6268;
+        .btn-off {
+            background-color: #f44336;
+        }
+        .value-display {
+            font-size: 24px;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .gauge {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            position: relative;
+            border-radius: 50%;
+            background: conic-gradient(
+                #4CAF50 0% 25%,
+                #8BC34A 25% 50%,
+                #FFC107 50% 75%,
+                #F44336 75% 100%
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gauge-inner {
+            width: 80%;
+            height: 80%;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>ESP32 Control Panel</h1>
+    <h1>ESP32 ADC Monitoring</h1>
     
-    <div>
+    <div class="panel">
         <h2>LED Control</h2>
-        <div id="status">LED: OFF</div>
-        <button id="toggleBtn">Toggle LED</button>
+        <div id="ledStatus" class="value-display">LED: OFF</div>
+        <button id="toggleBtn" class="btn btn-off">TURN ON</button>
     </div>
-
-    <br> <div>
-        <h2>ADC Reading</h2>
-        <div id="adcStatus">ADC Value: N/A</div>
+    
+    <div class="panel">
+        <h2>Analog Input (GPIO32)</h2>
+        <div class="gauge">
+            <div class="gauge-inner">
+                <span id="voltageValue">0.00</span>V
+            </div>
+        </div>
+        <div id="adcValue" class="value-display">ADC: 0</div>
     </div>
 
     <script>
-        // Your Firebase project configuration
-        // Replace with YOUR OWN Firebase project config if different
+        // Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyCA0btNL_QIxsHryzl4ZdcfTp9pRWeI8JQ",
+            apiKey: "YOUR_API_KEY",
             authDomain: "esp32-led-control-5646a.firebaseapp.com",
             databaseURL: "https://esp32-led-control-5646a-default-rtdb.firebaseio.com",
             projectId: "esp32-led-control-5646a",
-            storageBucket: "esp32-led-control-5646a.firebasestorage.app",
-            messagingSenderId: "989832608239",
-            appId: "1:989832608239:web:94027ebac129932ed69e1a"
+            storageBucket: "esp32-led-control-5646a.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // Firebase references
-        const ledRef = database.ref('esp32/led');
-        const adcValueRef = database.ref('esp32/adc_readings/current_value'); // Reference to the ADC path
-
-        // Get HTML elements
+        // DOM elements
         const toggleBtn = document.getElementById('toggleBtn');
-        const ledStatusDiv = document.getElementById('status');
-        const adcStatusDiv = document.getElementById('adcStatus'); // New element for ADC
+        const ledStatus = document.getElementById('ledStatus');
+        const adcValue = document.getElementById('adcValue');
+        const voltageValue = document.getElementById('voltageValue');
 
-        // --- LED Control Logic ---
+        // Reference to Firebase data
+        const ledRef = database.ref('esp32/led');
+        const adcRef = database.ref('esp32/adc');
+        const voltageRef = database.ref('esp32/voltage');
+
+        // LED control
         toggleBtn.addEventListener('click', () => {
             ledRef.once('value').then((snapshot) => {
-                const currentLedState = snapshot.val();
-                ledRef.set(!currentLedState); // Toggle the state
-            }).catch((error) => {
-                console.error("Error toggling LED:", error);
-                alert("Failed to toggle LED: " + error.message);
+                ledRef.set(!snapshot.val());
             });
         });
 
-        // Listen for real-time updates to LED state
+        // LED state listener
         ledRef.on('value', (snapshot) => {
             const state = snapshot.val();
-            ledStatusDiv.textContent = `LED: ${state ? 'ON' : 'OFF'}`;
-            ledStatusDiv.style.color = state ? '#dc3545' : '#28a745'; // Red for ON, Green for OFF
+            ledStatus.textContent = `LED: ${state ? 'ON' : 'OFF'}`;
+            ledStatus.style.color = state ? 'green' : 'red';
+            toggleBtn.textContent = state ? 'TURN OFF' : 'TURN ON';
+            toggleBtn.className = state ? 'btn' : 'btn btn-off';
         });
 
-        // --- ADC Reading Logic ---
-        // Listen for real-time updates to ADC value
-        adcValueRef.on('value', (snapshot) => {
-            const adcValue = snapshot.val();
-            if (adcValue !== null) {
-                adcStatusDiv.textContent = `ADC Value: ${adcValue}`;
-            } else {
-                adcStatusDiv.textContent = `ADC Value: N/A`; // Or a default message
-            }
+        // ADC value listener
+        adcRef.on('value', (snapshot) => {
+            const value = snapshot.val();
+            adcValue.textContent = `ADC: ${value}`;
         });
 
+        // Voltage value listener
+        voltageRef.on('value', (snapshot) => {
+            const voltage = snapshot.val().toFixed(2);
+            voltageValue.textContent = voltage;
+            
+            // Update gauge needle rotation (visual effect)
+            const gauge = document.querySelector('.gauge');
+            const percentage = Math.min((voltage / 3.3) * 100, 100);
+            gauge.style.background = `conic-gradient(
+                #4CAF50 0% 25%,
+                #8BC34A 25% 50%,
+                #FFC107 50% 75%,
+                #F44336 75% 100%,
+                transparent ${percentage}% 100%
+            )`;
+        });
     </script>
 </body>
 </html>
